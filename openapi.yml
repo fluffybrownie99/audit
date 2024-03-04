@@ -1,4 +1,3 @@
-
 openapi: 3.0.0
 info:
   description: This API provides audit info for Kafka service

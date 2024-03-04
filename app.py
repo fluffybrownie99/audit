@@ -2,10 +2,10 @@ import connexion, datetime, json, yaml, logging, logging.config, uuid
 from pykafka import KafkaClient
 
 #loading log conf
-# with open('log_conf.yml', 'r') as f:
-#     log_config = yaml.safe_load(f.read())
-#     logging.config.dictConfig(log_config)
-# logger = logging.getLogger('basicLogger')
+with open('log_conf.yml', 'r') as f:
+    log_config = yaml.safe_load(f.read())
+    logging.config.dictConfig(log_config)
+logger = logging.getLogger('basicLogger')
 
 # audit app_conf
 with open('app_conf.yml', 'r') as config_file:
@@ -24,19 +24,21 @@ def get_media_upload(index):
     # index is large and messages are constantly being received!
     consumer = topic.get_simple_consumer(reset_offset_on_start=True,
     consumer_timeout_ms=1000)
-    # logger.info("Retrieving media upload at index %d" % index)
+    logger.info("Retrieving media upload at index %d" % index)
+    counter = 0
     try:
         for msg in consumer:
             msg_str = msg.value.decode('utf-8')
             msg = json.loads(msg_str)
-        # Find the event at the index you want and
-        # return code 200
-        # i.e., return event, 200
-    except:
-        # logger.error("No more messages found")
-        # logger.error("Could not find Media Upload at index %d" % index)
-        pass
-    return { "message": "Not Found"}, 404
+            if msg.get("type") == "mediaupload":
+                if counter == index:  # Check if the current message is at the desired index
+                    return msg, 200  # Return the found message
+                counter += 1  # Increment the counter for each media upload message
+        logger.error("Could not find Media Upload at index %d" % index)
+        return {"message": "Not Found"}, 404        
+    except Exception as e:
+        logger.error("Error retrieving message: %s" % str(e))
+        return {"message": "Error"}, 500
 
 def get_media_playback(index):
     """ Get Playback data in History """
@@ -51,19 +53,23 @@ def get_media_playback(index):
     # index is large and messages are constantly being received!
     consumer = topic.get_simple_consumer(reset_offset_on_start=True,
     consumer_timeout_ms=1000)
-    # logger.info("Retrieving media upload at index %d" % index)
+    logger.info("Retrieving media playback at index %d" % index)
+    counter = 0
     try:
         for msg in consumer:
             msg_str = msg.value.decode('utf-8')
             msg = json.loads(msg_str)
         # Find the event at the index you want and
         # return code 200
-        # i.e., return event, 200
-    except:
-        # logger.error("No more messages found")
-        # logger.error("Could not find Media Playback at index %d" % index)
-        pass
-    return { "message": "Not Found"}, 404
+            if msg.get("type") == "mediaplayback":
+                if counter == index:  # use counter to make sure the msg is at the correct index
+                    return msg, 200  # return the found message
+                counter += 1  # if counter isn't index, then increment the counter for each msg
+        logger.error("Could not find Media Playback at index %d" % index)
+        return {"message": "Not Found"}, 404
+    except Exception as e:
+        logger.error("Error retrieving message: %s" % str(e))
+        return {"message": "Error"}, 500
 
 # Connexion and Flask stuff
 app = connexion.FlaskApp(__name__, specification_dir='')
